@@ -9,3 +9,5 @@ else
 obj-$(CONFIG_TRUSTONIC_TEE) := 310a/MobiCoreDriver/
 obj-$(CONFIG_TRUSTONIC_TRUSTED_UI) += 310a/TlcTui/
 endif
+obj-$(CONFIG_MOBICORE_DRIVER) := MobiCoreDriver/
+

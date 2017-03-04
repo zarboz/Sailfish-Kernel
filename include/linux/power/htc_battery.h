@@ -1,51 +1,22 @@
-#define CONFIG_HTC_BATT_PCN0001 //Remap
-#define CONFIG_HTC_BATT_PCN0002 //Level consistent
-#define CONFIG_HTC_BATT_PCN0003 //Battery ID judgement
-#define CONFIG_HTC_BATT_PCN0004 //HTC Attribute
-#define CONFIG_HTC_BATT_PCN0005 //overloading
-#define CONFIG_HTC_BATT_PCN0006 //Debug flag
-#define CONFIG_HTC_BATT_PCN0007 //Safety timer
-#define CONFIG_HTC_BATT_PCN0008 //Charging cycle calculation
-#define CONFIG_HTC_BATT_PCN0009 //SSD Battery View
-#define CONFIG_HTC_BATT_PCN0010 //Limit IUSB in identical discharge time.
-#define CONFIG_HTC_BATT_PCN0011 //Prepare/Complete function
-#define CONFIG_HTC_BATT_PCN0012 //LED control
-#define CONFIG_HTC_BATT_PCN0013 //Smart charging
-#define CONFIG_HTC_BATT_PCN0014 //Driver ready notification
-#define CONFIG_HTC_BATT_PCN0015 //5V/2A Charger implement
-//#define CONFIG_HTC_BATT_PCN0016 //Cool charger: implement in msm_defconfig
-#define CONFIG_HTC_BATT_PCN0017 //Unknown charger detection
-#define CONFIG_HTC_BATT_PCN0018 //Bad cable detection
-#define CONFIG_HTC_BATT_PCN0019 //QC2.0/QC3.0 UI notification
-#define CONFIG_HTC_BATT_PCN0020 //PD charger: dependency with usb driver's code, ***must check***
-#define CONFIG_HTC_BATT_PCN0021 //Power team monitor battery charge/discharge
-#define CONFIG_HTC_BATT_PCN0022 //USB overheat feature
-#define CONFIG_HTC_BATT_WA_PCN0001 //[QCTBUG] release wake lock
-#define CONFIG_HTC_BATT_WA_PCN0002 //[QCTBUG] PMIC BUG
-#define CONFIG_HTC_BATT_WA_PCN0003 //Unexpected battery warm
-//#define CONFIG_HTC_BATT_WA_PCN0004 //Fingerprint disable charging, use CONFIG_FPC_HTC_DISABLE_CHARGING
-#define CONFIG_HTC_BATT_WA_PCN0005 //USB2.0 charger detect slow
-#define CONFIG_HTC_BATT_WA_PCN0006 //Hard limit to prevent AICL over spec.
-#define CONFIG_HTC_BATT_WA_PCN0007 //[QCTBUG] boot time long issue
-#define CONFIG_HTC_BATT_WA_PCN0008 //Charger suspend issue
-#define CONFIG_HTC_BATT_WA_PCN0009 //[QCTBUG] OV keep when unplug
-#define CONFIG_HTC_BATT_WA_PCN0010 //Avoid reverse boost after DCP unplugged
-#define CONFIG_HTC_BATT_WA_PCN0011 //Rerun APSD conditions
-#define CONFIG_HTC_BATT_WA_PCN0012 //OTG charge fail
-#define CONFIG_HTC_BATT_WA_PCN0013 //QC3.0 cannot be detected with high impedance cable
-#define CONFIG_HTC_BATT_WA_PCN0014 //High board impedance cause small charge current
-#define CONFIG_HTC_BATT_WA_PCN0015 //Adjust cc to cv mode threshold
-#define CONFIG_HTC_BATT_WA_PCN0016 //FG SRAM dump
-#define CONFIG_HTC_BATT_WA_PCN0017 //Default disable hvdcp for non-standard cable
-#define CONFIG_HTC_BATT_WA_PCN0019 //Skip IACS ready timeout when FG reset is on going
-#define CONFIG_HTC_BATT_WA_PCN0021 //Set default AICL 1A, and set AICL back to 1.5A after kernel time 2min for car charger
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+*/
+#ifndef __HTC_BATTERY_H__
+#define __HTC_BATTERY_H__
 
 #include <linux/rtc.h>
-#ifdef CONFIG_HTC_BATT_PCN0011
 #include <linux/alarmtimer.h>
-#endif //CONFIG_HTC_BATT_PCN0011
 #include <linux/wakelock.h>
 #include <linux/power_supply.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 #define BATT_LOG(x...) do { \
 printk(KERN_INFO "[BATT] " x); \
@@ -73,53 +44,48 @@ ktime_to_ns(ktime_get()), tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, \
 tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec); \
 } while (0)
 
-#ifdef CONFIG_HTC_BATT_PCN0006
 #define POWER_MONITOR_BATT_CAPACITY	77
 #define POWER_MONITOR_BATT_TEMP	330
-#endif //CONFIG_HTC_BATT_PCN0006
 
-#ifdef CONFIG_HTC_BATT_PCN0002
 /* stored consistent parameters */
 #define STORE_MAGIC_NUM          0xDDAACC00
 #define STORE_MAGIC_OFFSET       3104    /*0xC20*/
 #define STORE_SOC_OFFSET         3108    /*0xC24*/
 #define STORE_CURRTIME_OFFSET    3120    /*0xC30*/
 #define STORE_TEMP_OFFSET		3140    /*0xC44*/
-#endif //CONFIG_HTC_BATT_PCN0002
 
-#ifdef CONFIG_HTC_BATT_PCN0008
 /* for batt cycle info */
 #define HTC_BATT_TOTAL_LEVELRAW		3144
 #define HTC_BATT_OVERHEAT_MSEC		3148
 #define HTC_BATT_FIRST_USE_TIME		3152
 #define HTC_BATT_CYCLE_CHECKSUM		3156
-#endif //CONFIG_HTC_BATT_PCN0008
 
 /* for htc_extension */
 #define HTC_EXT_UNKNOWN_USB_CHARGER		(1<<0)
 #define HTC_EXT_CHG_UNDER_RATING		(1<<1)
 #define HTC_EXT_CHG_SAFTY_TIMEOUT		(1<<2)
 #define HTC_EXT_CHG_FULL_EOC_STOP		(1<<3)
-#ifdef CONFIG_HTC_BATT_PCN0018
 #define HTC_EXT_BAD_CABLE_USED			(1<<4)
-#endif //CONFIG_HTC_BATT_PCN0018
-#ifdef CONFIG_HTC_BATT_PCN0019
 #define HTC_EXT_QUICK_CHARGER_USED		(1<<5)
-#endif //CONFIG_HTC_BATT_PCN0019
-#define HTC_EXT_USB_OVERHEAT				(1<<6)
 
-#define BATT_TIMER_UPDATE_TIME				(60)
-#ifdef CONFIG_HTC_BATT_PCN0011
 #define BATT_SUSPEND_CHECK_TIME				(3600)
 #define BATT_SUSPEND_HIGHFREQ_CHECK_TIME	(300)
 #define BATT_TIMER_CHECK_TIME				(360)
+#define BATT_TIMER_UPDATE_TIME				(60)
 #define CHECH_TIME_TOLERANCE_MS	(1000)
 
 /* for suspend high frequency (5min) */
 #define SUSPEND_HIGHFREQ_CHECK_BIT_TALK		(1)
 #define SUSPEND_HIGHFREQ_CHECK_BIT_SEARCH	(1<<1)
 #define SUSPEND_HIGHFREQ_CHECK_BIT_MUSIC	(1<<3)
-#endif //CONFIG_HTC_BATT_PCN0011
+
+#define KERNEL_FLAG_KEEP_CHARG_ON 		BIT(2)
+#define KERNEL_FLAG_DISABLE_SAFETY_TIMER 	BIT(13)
+#define KERNEL_FLAG_FOR_PA_TEST 		BIT(14)
+#define KERNEL_FLAG_TEST_PWR_SUPPLY 		BIT(15)
+#define KERNEL_FLAG_ENABLE_FAST_CHARGE		BIT(26)
+#define KERNEL_FLAG_DISABLE_TBATT_PROTECT 	BIT(28)
+#define KERNEL_FLAG_ENABLE_BMS_CHARGER_LOG 	BIT(29)
 
 struct battery_info_reply {
 	u32 batt_vol;
@@ -139,9 +105,10 @@ struct battery_info_reply {
 	u32 over_vchg;
 	u32 health;
 	bool is_full;
-#ifdef CONFIG_HTC_BATT_PCN0016
+	bool is_eoc;
+#ifdef CONFIG_HTC_CHARGER
 	bool is_htcchg_ext_mode;
-#endif //CONFIG_HTC_BATT_PCN0016
+#endif // CONFIG_HTC_CHARGER
 };
 
 struct battery_info_previous {
@@ -151,7 +118,6 @@ struct battery_info_previous {
 	u32 level_raw;
 };
 
-#ifdef CONFIG_HTC_BATT_PCN0002
 struct htc_battery_store {
 	u32 batt_stored_magic_num;
 	u32 batt_stored_soc;
@@ -159,55 +125,54 @@ struct htc_battery_store {
 	unsigned long batt_stored_update_time;
 	u32 consistent_flag;
 };
-#endif //CONFIG_HTC_BATT_PCN0002
 
 struct htc_charger {
 	int (*dump_all)(void);
 	int (*get_vbus)(void);
-#ifdef CONFIG_HTC_BATT_PCN0009
 	int (*get_attr_text)(char *buf, int size);
-#endif //CONFIG_HTC_BATT_PCN0009
 	int (*is_battery_full_eoc_stop)(int *result);
+	bool (*pd_is_limited_5v)(void);
+	int (*get_eoc_ma)(void);
 };
 
 struct htc_gauge {
 	int (*get_attr_text)(char *buf, int size);
+	int (*get_full_ma)(void);
+	int (*get_batt_fcc_ma)(void);
+	int (*get_batt_capacity_mah)(void);
+	int (*get_fcc_half_capacity_ma)(void);
 };
 
 struct htc_battery_info {
 	struct battery_info_reply rep;
 	struct battery_info_previous prev;
-#ifdef CONFIG_HTC_BATT_PCN0002
 	struct htc_battery_store store;
-#endif //CONFIG_HTC_BATT_PCN0002
 	struct htc_charger *icharger;
 	struct htc_gauge *igauge;
 	struct power_supply		*batt_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		*usb_psy;
+	struct power_supply             *parallel_psy;
 	int critical_low_voltage_mv;
 	int smooth_chg_full_delay_min;
 	int decreased_batt_level_check;
 	int batt_full_voltage_mv;
 	int batt_full_current_ma;
+	int batt_eoc_current_ma;
 	int overload_curr_thr_ma;
 	struct wake_lock charger_exist_lock;
-	struct wake_lock check_overheat_lock;
 	struct delayed_work chg_full_check_work;
-#ifdef CONFIG_HTC_BATT_PCN0022
 	struct delayed_work is_usb_overheat_work;
-#endif //CONFIG_HTC_BATT_PCN0022
-#ifdef CONFIG_HTC_BATT_PCN0017
 	struct delayed_work chk_unknown_chg_work;
-#endif //CONFIG_HTC_BATT_PCN0017
-#ifdef CONFIG_HTC_BATT_PCN0018
 	struct delayed_work cable_impedance_work;
-#endif //CONFIG_HTC_BATT_PCN0018
-	struct delayed_work htc_usb_overheat_work;
 	int state;
 	int vbus;
 	int k_debug_flag;
 	int current_limit_reason;
+	int batt_fcc_ma;
+	int batt_capacity_mah;
+	int fcc_half_capacity_ma;
+	bool pd_is_limited_5v;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 	struct workqueue_struct *batt_fb_wq;
@@ -218,29 +183,25 @@ struct htc_battery_info {
 
 struct htc_battery_timer {
 	unsigned long batt_system_jiffies;
-	unsigned long total_time_ms;	/* since last do batt_work */
-#ifdef CONFIG_HTC_BATT_PCN0011
 	unsigned long batt_suspend_ms;
-	struct alarm batt_check_wakeup_alarm;
-#endif //CONFIG_HTC_BATT_PCN0011
+	unsigned long total_time_ms;	/* since last do batt_work */
 	struct work_struct batt_work;
 	struct timer_list batt_timer;
 	struct workqueue_struct *batt_wq;
 	struct wake_lock battery_lock;
 	unsigned int time_out;
+	struct alarm batt_check_wakeup_alarm;
 };
 
 struct htc_battery_platform_data {
 	struct htc_charger icharger;
+	struct htc_gauge igauge;
 };
 
-#ifdef CONFIG_HTC_BATT_PCN0020
 struct htc_pd_data {
 	int	pd_list[10][2];
 };
-#endif //CONFIG_HTC_BATT_PCN0020
 
-#ifdef CONFIG_HTC_BATT_PCN0021
 struct htc_charging_statistics {
         unsigned long begin_chg_time;
         unsigned long end_chg_time;
@@ -253,7 +214,6 @@ struct htc_statistics_category {
         unsigned long dischg_time_sum;
         int sample_count;
 };
-#endif //CONFIG_HTC_BATT_PCN0021
 
 enum charger_control_flag {
 	STOP_CHARGER = 0,
@@ -262,10 +222,8 @@ enum charger_control_flag {
 	DISABLE_LIMIT_CHARGER,
 	DISABLE_PWRSRC,
 	ENABLE_PWRSRC,
-#ifdef CONFIG_FPC_HTC_DISABLE_CHARGING //HTC_BATT_WA_PCN0004
 	DISABLE_PWRSRC_FINGERPRINT,
 	ENABLE_PWRSRC_FINGERPRINT,
-#endif //CONFIG_FPC_HTC_DISABLE_CHARGING //HTC_BATT_WA_PCN0004
 	END_CHARGER
 };
 
@@ -301,81 +259,168 @@ enum htc_batt_probe {
 	BATT_PROBE_MAX,
 };
 enum htc_charger_request {
-#ifdef CONFIG_HTC_BATT_PCN0018
 	CHARGER_ABILITY_DETECT_DONE,
-#endif //CONFIG_HTC_BATT_PCN0018
-#ifdef CONFIG_HTC_BATT_PCN0015
 	CHARGER_5V_2A_DETECT_DONE,
-#endif //CONFIG_HTC_BATT_PCN0015
 };
 
-
-enum htc_chr_type_data {
-	DATA_NO_CHARGING = 0,
-	DATA_UNKNOWN_CHARGER,
-	DATA_UNKNOWN_TYPE,
-	DATA_USB,
-	DATA_USB_CDP,
-	DATA_AC,
-	DATA_QC2,
-	DATA_QC3,
-	DATA_PD_5V,
-	DATA_PD_9V,
-	DATA_PD_12V,
-	DATA_TYPE_C
+static const struct qpnp_vadc_map_pt usb_adcmap_btm_threshold[] = {
+        {-200, 1668},
+        {-190, 1659},
+        {-180, 1651},
+        {-170, 1641},
+        {-160, 1632},
+        {-150, 1622},
+        {-140, 1611},
+        {-130, 1600},
+        {-120, 1589},
+        {-110, 1577},
+        {-100, 1565},
+        {-90, 1552},
+        {-80, 1539},
+        {-70, 1525},
+        {-60, 1511},
+        {-50, 1496},
+        {-40, 1481},
+        {-30, 1466},
+        {-20, 1449},
+        {-10, 1433},
+        {0, 1416},
+        {10, 1398},
+        {20, 1381},
+        {30, 1362},
+        {40, 1344},
+        {50, 1325},
+        {60, 1305},
+        {70, 1286},
+        {80, 1266},
+        {90, 1245},
+        {100, 1225},
+        {110, 1204},
+        {120, 1183},
+        {130, 1161},
+        {140, 1140},
+        {150, 1118},
+        {160, 1096},
+        {170, 1075},
+        {180, 1053},
+        {190, 1031},
+        {200, 1009},
+        {210, 987},
+        {220, 965},
+        {230, 943},
+        {240, 922},
+        {250, 900},
+        {260, 879},
+        {270, 857},
+        {280, 836},
+        {290, 815},
+        {300, 795},
+        {310, 774},
+        {320, 754},
+        {330, 734},
+        {340, 715},
+        {350, 695},
+        {360, 677},
+        {370, 658},
+        {380, 640},
+        {390, 622},
+        {400, 604},
+        {410, 587},
+        {420, 570},
+        {430, 554},
+        {440, 537},
+        {450, 522},
+        {460, 506},
+        {470, 491},
+        {480, 477},
+        {490, 462},
+        {500, 449},
+        {510, 435},
+        {520, 422},
+        {530, 409},
+        {540, 397},
+        {550, 385},
+        {560, 373},
+        {570, 361},
+        {580, 350},
+        {590, 339},
+        {600, 329},
+        {610, 319},
+        {620, 309},
+        {630, 300},
+        {640, 290},
+        {650, 281},
+        {660, 273},
+        {670, 264},
+        {680, 256},
+        {690, 248},
+        {700, 241},
+        {710, 233},
+        {720, 226},
+        {730, 219},
+        {740, 212},
+        {750, 206},
+        {760, 200},
+        {770, 193},
+        {780, 188},
+        {790, 182},
+        {800, 176},
+        {810, 171},
+        {820, 166},
+        {830, 161},
+        {840, 156},
+        {850, 151},
+        {860, 147},
+        {870, 142},
+        {880, 138},
+        {890, 134},
+        {900, 130},
+        {910, 126},
+        {920, 123},
+        {930, 119},
+        {940, 116},
+        {950, 112},
+        {960, 109},
+        {970, 106},
+        {980, 103},
+        {990, 100},
+        {1000, 97}
 };
 
-#ifdef CONFIG_HTC_BATT_PCN0004
 int htc_battery_create_attrs(struct device *dev);
-#endif //CONFIG_HTC_BATT_PCN0004
 void htc_battery_info_update(enum power_supply_property prop, int intval);
-#ifdef CONFIG_HTC_BATT_PCN0014
 void htc_battery_probe_process(enum htc_batt_probe probe_type);
-#endif //CONFIG_HTC_BATT_PCN0014
-#ifdef CONFIG_HTC_BATT_PCN0001
 int htc_battery_level_adjust(void);
-#endif //CONFIG_HTC_BATT_PCN0001
-#ifdef CONFIG_FPC_HTC_DISABLE_CHARGING //HTC_BATT_WA_PCN0004
 int htc_battery_charger_switch_internal(int enable);
-#endif //CONFIG_FPC_HTC_DISABLE_CHARGING //HTC_BATT_WA_PCN0004
-#ifdef CONFIG_HTC_BATT_PCN0020
 int htc_battery_pd_charger_support(int size, struct htc_pd_data pd_data, int *max_mA);
-bool htc_battery_get_pd_type(int *curr);
-#endif //CONFIG_HTC_BATT_PCN0020
-bool htc_battery_get_discharging_reason(void);
+bool htc_battery_is_pd_detected(void);
+int htc_battery_get_pd_current(void);
+int htc_battery_get_pd_vbus(int *vbus);
 
 /* Implement on QCT driver */
-#ifdef CONFIG_HTC_BATT_PCN0018
 int request_charger_status(enum htc_charger_request mode, void *ret_buf);
-void impedance_set_iusb_max (int current_ua, bool mode);
-#endif //CONFIG_HTC_BATT_PCN0018
-#if defined(CONFIG_HTC_BATT_PCN0018)||defined(CONFIG_HTC_BATT_PCN0015)||defined(CONFIG_HTC_BATT_PCN0020)
 void set_aicl_enable(bool bEnable);
-#endif //CONFIG_HTC_BATT_PCN0018/PCN0015/PCN0020
+void impedance_set_iusb_max (int current_ua, bool mode);
 int charger_dump_all(void);
+int fg_get_batt_full_charge_criteria_ma(void);
+int fg_get_batt_fcc_ma(void);
+int fg_get_batt_capacity_mah(void);
+int fg_get_fcc_half_capacity_ma(void);
 int pmi8994_get_usbin_voltage_now(void);
-#ifdef CONFIG_HTC_BATT_PCN0009
 int pmi8994_charger_get_attr_text(char *buf, int size);
-#endif //CONFIG_HTC_BATT_PCN0009
 int pmi8994_is_batt_full_eoc_stop(int *result);
+bool pmi8994_pd_is_limited_5v(void);
+int pmi8996_get_batt_eoc_criteria_ma(void);
 int pmi8994_set_float_voltage_comp (int vfloat_comp);
 void pmi8994_set_iusb_max (int current_ua);
 void pmi8994_set_batt_health_good(void);
 void pmi8994_rerun_apsd(void);
 bool is_otg_enabled(void);
-int pmi8996_get_chgr_sts(void);
-#ifdef CONFIG_HTC_BATT_WA_PCN0016
+bool is_parallel_enabled(void);
 void force_dump_fg_sram(void);
-#endif //CONFIG_HTC_BATT_WA_PCN0016
-#ifdef CONFIG_HTC_BATT_WA_PCN0021
+int pmi8996_get_usb_temp(void);
 void pmi8996_set_dcp_default(void);
-#endif //CONFIG_HTC_BATT_WA_PCN0021
-
-#ifdef CONFIG_HTC_BATT_PCN0022
-int pm8996_get_usb_temp(void);
-#endif // CONFIG_HTC_BATT_PCN0022
-#ifdef CONFIG_HTC_BATT_PCN0002
+bool pmi8996_is_booting_stage(void);
+bool htc_battery_get_discharging_reason(void);
 bool get_ima_error_status(void);
-#endif //CONFIG_HTC_BATT_PCN0002
-
-bool usb_otg_pulse_skip_control(bool disable);
+#endif /* __HTC_BATTERY_H__ */

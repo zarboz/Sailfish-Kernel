@@ -74,6 +74,8 @@ config USB
 	  To compile this driver as a module, choose M here: the
 	  module will be called usbcore.
 
+source "drivers/usb/fusb302/Kconfig"
+
 if USB
 
 source "drivers/usb/core/Kconfig"

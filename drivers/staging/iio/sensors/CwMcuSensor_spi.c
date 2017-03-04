@@ -18,9 +18,9 @@
 #include <linux/string.h>
 
 #define MCU_SPI_MAX_WRITE_LENGTH	32
-#define MCU_SPI_MAX_READ_LENGTH		72
-#define MCU_SPI_DUMMY_LENGTH		32
-#define MCU_SPI_RETRY_TIMES			3
+#define MCU_SPI_MAX_READ_LENGTH		32
+#define MCU_SPI_DUMMY_LENGTH		48
+
 
 #define MCU_SPI_REG_RW_PROTOCOL_LEN 3
 #define MCU_SPI_REG_READ_ACK_CRC_LEN 3
@@ -117,9 +117,9 @@ int CWMCU_do_write_block(struct cwmcu_bus_client *mcu_client,
 			  u8 reg_addr, u8 len, u8 *data)
 {
 	struct spi_transfer transfer[1];
-	int ret = 0, i = 0, transfer_len = 0, retry = 0;
+	int ret = 0, i = 0, transfer_len = 0;
 	u8 spi_protocol_data[MCU_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
-	u8 spi_dummy_data[(MCU_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH) * MCU_SPI_RETRY_TIMES] = {0};
+	u8 spi_dummy_data[MCU_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
 	u8 crc = 0;
 
 	if (len > MCU_SPI_MAX_WRITE_LENGTH)
@@ -155,21 +155,6 @@ int CWMCU_do_write_block(struct cwmcu_bus_client *mcu_client,
 		}
 	}
 
-	//retry when ack error
-	for(retry = 1; retry < MCU_SPI_RETRY_TIMES && ret < 0; retry ++) {
-		transfer[0].tx_buf = NULL; // mcu spi  protocol
-		transfer[0].len = len + MCU_SPI_DUMMY_LENGTH;
-		transfer[0].rx_buf = spi_dummy_data + (len + MCU_SPI_DUMMY_LENGTH) * retry; // mcu spi  protocol
-		ret = spi_sync_transfer(mcu_client->spi_client, transfer, 1);
-
-		for (i = 0; i < (len + MCU_SPI_DUMMY_LENGTH) * (retry + 1) - 1 ; i++) {
-			if(spi_dummy_data[i] == MCU_SPI_RW_ACK1 && spi_dummy_data[i+1] == MCU_SPI_RW_ACK2) {
-				return len;
-			}
-		}
-		ret = -EIO;
-	}
-
 	ret = -EIO;
 	return ret;
 }
@@ -179,10 +164,10 @@ int CWMCU_do_read(struct cwmcu_bus_client *mcu_client,
 			 u8 reg_addr, u8 len, u8 *data)
 {
 	struct spi_transfer transfer[1];
-	int ret = 0, transfer_len = 0, data_index = 0, i = 0, data_start_index = 0, retry = 0;
+	int ret = 0, transfer_len = 0, data_index = 0, i = 0, data_start_index = 0;
 	u8 mcu_ack[MCU_SPI_RW_PACKAGE_LEN] = {0};
 	u8 spi_protocol_data[MCU_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
-	u8 spi_dummy_data[(MCU_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH) * MCU_SPI_RETRY_TIMES] = {0};
+	u8 spi_dummy_data[MCU_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
 	u8 crc = 0;
 
 	if (len > MCU_SPI_MAX_READ_LENGTH)
@@ -220,48 +205,14 @@ int CWMCU_do_read(struct cwmcu_bus_client *mcu_client,
 
 	if(mcu_ack[0] != MCU_SPI_RW_ACK1 || mcu_ack[1] != MCU_SPI_RW_ACK2) {
 		ret = -EIO;
+		return ret;
 	}
 
 	crc = spi_dummy_data[data_start_index + len];
 
-	if(ret >= 0) {
-		if(spi_check_crc(data, len, crc, 1) < 0) {
-			ret = -EAGAIN;
-		}
+	if(spi_check_crc(data, len, crc, 1) < 0) {
+		return -EAGAIN;
 	}
-
-	//retry when ack error
-	for(retry = 1; retry < MCU_SPI_RETRY_TIMES && ret < 0; retry ++) {
-		transfer[0].tx_buf = NULL;
-		transfer[0].rx_buf = spi_dummy_data + (len + MCU_SPI_DUMMY_LENGTH) * retry;
-		transfer[0].len = len + MCU_SPI_DUMMY_LENGTH;
-		ret = spi_sync_transfer(mcu_client->spi_client, transfer, 1);
-
-		for(i = data_index;i < (len + MCU_SPI_DUMMY_LENGTH) * (retry + 1) - 1;i++) {
-			if(spi_dummy_data[i] == MCU_SPI_RW_ACK1 && spi_dummy_data[i+1] == MCU_SPI_RW_ACK2) {
-				mcu_ack[0] = spi_dummy_data[i];
-				mcu_ack[1] = spi_dummy_data[i+1];
-				data_start_index = i + 2;
-				memcpy(data, spi_dummy_data + data_start_index, len);
-				break;
-			}
-		}
-
-		if(mcu_ack[0] != MCU_SPI_RW_ACK1 || mcu_ack[1] != MCU_SPI_RW_ACK2) {
-			ret = -EIO;
-		}
-
-		crc = spi_dummy_data[data_start_index + len];
-
-		if(ret >= 0) {
-			if(spi_check_crc(data, len, crc, 1) < 0) {
-				ret = -EAGAIN;
-			}
-		}
-	}
-
-	if(ret < 0)
-		return ret;
 
 	return len;
 }
@@ -278,9 +229,9 @@ int CWMCU_do_read(struct cwmcu_bus_client *mcu_client,
 int mcu_spi_tx_cmd(const struct cwmcu_bus_client *mcu_client, u8 cmd, u8 *data, int len)
 {
 	struct spi_transfer transfer[1];
-	int ret = 0, i = 0, transfer_len = 0, retry = 0;
+	int ret = 0, i = 0, transfer_len = 0;
 	u8 spi_protocol_data[MCU_DLOAD_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
-	u8 spi_dummy_data[(MCU_DLOAD_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH) * MCU_SPI_RETRY_TIMES] = {0};
+	u8 spi_dummy_data[MCU_DLOAD_SPI_MAX_WRITE_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
 	u8 crc = 0;
 
 	if (len > MCU_DLOAD_SPI_MAX_WRITE_LENGTH)
@@ -316,21 +267,6 @@ int mcu_spi_tx_cmd(const struct cwmcu_bus_client *mcu_client, u8 cmd, u8 *data, 
 		}
 	}
 
-	//retry when ack error
-	for(retry = 1; retry < MCU_SPI_RETRY_TIMES && ret < 0; retry ++) {
-		transfer[0].tx_buf = NULL; // mcu spi  protocol
-		transfer[0].len = len + MCU_SPI_DUMMY_LENGTH;
-		transfer[0].rx_buf = spi_dummy_data + (len + MCU_SPI_DUMMY_LENGTH) * retry; // mcu spi  protocol
-		ret = spi_sync_transfer(mcu_client->spi_client, transfer, 1);
-
-		for (i = 0; i < (len + MCU_SPI_DUMMY_LENGTH) * (retry + 1) - 1 ; i++) {
-			if(spi_dummy_data[i] == MCU_DLOAD_SPI_RW_ACK1 && spi_dummy_data[i+1] == MCU_DLOAD_SPI_RW_ACK2) {
-				return len;
-			}
-		}
-		ret = -EIO;
-	}
-
 	ret = -EIO;
 	return ret;
 }
@@ -338,10 +274,10 @@ int mcu_spi_tx_cmd(const struct cwmcu_bus_client *mcu_client, u8 cmd, u8 *data, 
 int mcu_spi_rx_cmd(const struct cwmcu_bus_client *mcu_client, u8 cmd, u8 *data, int len)
 {
 	struct spi_transfer transfer[1];
-	int ret = 0, transfer_len = 0, data_index = 0, i = 0, data_start_index = 0, retry = 0;
+	int ret = 0, transfer_len = 0, data_index = 0, i = 0, data_start_index = 0;
 	u8 mcu_ack[MCU_SPI_RW_PACKAGE_LEN] = {0};
 	u8 spi_protocol_data[MCU_DLOAD_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
-	u8 spi_dummy_data[(MCU_DLOAD_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH) * MCU_SPI_RETRY_TIMES] = {0};
+	u8 spi_dummy_data[MCU_DLOAD_SPI_MAX_READ_LENGTH + MCU_SPI_DUMMY_LENGTH] = {0};
 	u8 crc = 0;
 
 	if (len > MCU_DLOAD_SPI_MAX_READ_LENGTH)
@@ -379,48 +315,14 @@ int mcu_spi_rx_cmd(const struct cwmcu_bus_client *mcu_client, u8 cmd, u8 *data, 
 
 	if(mcu_ack[0] != MCU_DLOAD_SPI_RW_ACK1 || mcu_ack[1] != MCU_DLOAD_SPI_RW_ACK2) {
 		ret = -EIO;
+		return ret;
 	}
 
 	crc = spi_dummy_data[data_start_index + len];
 
-	if(ret >= 0) {
-		if(spi_check_crc(data, len, crc, 1) < 0) {
-			return -EAGAIN;
-		}
+	if(spi_check_crc(data, len, crc, 1) < 0) {
+		return -EAGAIN;
 	}
-
-	//retry when ack error
-	for(retry = 1; retry < MCU_SPI_RETRY_TIMES && ret < 0; retry ++) {
-		transfer[0].tx_buf = NULL;
-		transfer[0].rx_buf = spi_dummy_data + (len + MCU_SPI_DUMMY_LENGTH) * retry;
-		transfer[0].len = len + MCU_SPI_DUMMY_LENGTH;
-		ret = spi_sync_transfer(mcu_client->spi_client, transfer, 1);
-
-		for(i = data_index;i < (len + MCU_SPI_DUMMY_LENGTH) * (retry + 1) - 1;i++) {
-			if(spi_dummy_data[i] == MCU_DLOAD_SPI_RW_ACK1 && spi_dummy_data[i+1] == MCU_DLOAD_SPI_RW_ACK2) {
-				mcu_ack[0] = spi_dummy_data[i];
-				mcu_ack[1] = spi_dummy_data[i+1];
-				data_start_index = i + 2;
-				memcpy(data, spi_dummy_data + data_start_index, len);
-				break;
-			}
-		}
-
-		if(mcu_ack[0] != MCU_DLOAD_SPI_RW_ACK1 || mcu_ack[1] != MCU_DLOAD_SPI_RW_ACK2) {
-			ret = -EIO;
-		}
-
-		crc = spi_dummy_data[data_start_index + len];
-
-		if(ret >= 0) {
-			if(spi_check_crc(data, len, crc, 1) < 0) {
-				ret = -EAGAIN;
-			}
-		}
-	}
-
-	if(ret < 0)
-		return ret;
 
 	return len;
 }

@@ -28,9 +28,10 @@
 #include <linux/rndis_ipa.h>
 #include <linux/workqueue.h>
 
-#define CREATE_TRACE_POINTS
+
 #include "rndis_ipa_trace.h"
 
+#define CREATE_TRACE_POINTS
 #define DRV_NAME "RNDIS_IPA"
 #define DEBUGFS_DIR_NAME "rndis_ipa"
 #define DEBUGFS_AGGR_DIR_NAME "rndis_ipa_aggregation"
