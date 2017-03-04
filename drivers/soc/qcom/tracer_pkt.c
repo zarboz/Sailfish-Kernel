@@ -14,9 +14,9 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <soc/qcom/tracer_pkt.h>
-
-#include "tracer_pkt_private.h"
 #define CREATE_TRACE_POINTS
+#include "tracer_pkt_private.h"
+
 static unsigned qdss_tracing;
 module_param_named(qdss_tracing_enable, qdss_tracing,
 		   uint, S_IRUGO | S_IWUSR | S_IWGRP);

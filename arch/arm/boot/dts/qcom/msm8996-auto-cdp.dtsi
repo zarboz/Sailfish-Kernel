@@ -398,7 +398,7 @@
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
+	qcom,panel-roi-alignment = <720 128 720 64 720 64>;
 };
 
 &dsi_nt35597_dsc_video {
@@ -653,10 +653,7 @@
 				"msm-pcm-routing", "msm-compr-dsp",
 				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
-//HTC_AUD_START
-				/*<&dai_mi2s>, <&dai_mi2s_quat>,*/
-				<&dai_mi2s_quat>,
-//HTC_AUD_END
+				<&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
 				<&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>,
@@ -1033,4 +1030,87 @@
 	/delete-property/ qcom,spkr-sd-n-gpio;
 };
 
+&hl7509_en_vreg {
+	status = "ok";
+};
 
+&hl7509_vreg {
+	status = "ok";
+};
+
+&gfx_cpr {
+	vdd-supply = <&hl7509_vreg>;
+	qcom,cpr-step-quot-init-min = <20>;
+	qcom,cpr-step-quot-init-max = <26>;
+	qcom,voltage-step = <10000>;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000
+		 910000  960000 1020000>;
+	qcom,cpr-voltage-floor =
+		<600000  600000  600000  600000  600000
+		 600000  600000  600000>;
+};
+
+&pm8994_l3 {
+	regulator-min-microvolt = <875000>;
+	regulator-max-microvolt = <875000>;
+	qcom,init-voltage = <875000>;
+};
+
+&pm8994_l11 {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <850000>;
+	qcom,init-voltage = <850000>;
+};
+
+&pm8994_l17 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	qcom,init-voltage = <1800000>;
+};
+
+&pm8994_l23 {
+	regulator-min-microvolt = <1100000>;
+	regulator-max-microvolt = <1100000>;
+	qcom,init-voltage = <1100000>;
+};
+
+&pm8994_l27 {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+	qcom,init-voltage = <800000>;
+};
+
+&pm8994_l29 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
+	qcom,init-voltage = <2500000>;
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa26 {
+		/delete-node/ pm8994_l26_corner;
+		/delete-node/ pm8994_l26_floor_corner;
+
+		pm8994_l26: regulator-l26 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa31 {
+		status = "okay";
+		pm8994_l31: regulator-l31 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+};

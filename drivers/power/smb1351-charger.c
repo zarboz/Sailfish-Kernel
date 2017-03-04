@@ -755,7 +755,12 @@ static int smb1351_usb_suspend(struct smb1351_charger *chip, int reason,
 	else
 		suspended |= reason;
 
+#ifdef CONFIG_HTC_BATT
+	pr_info("reason = %d requested_suspend = %d suspended_status = %d -> %d\n",
+			reason, suspend, chip->usb_suspended_status, suspended);
+#else
 	pr_debug("new suspended_status = %d\n", suspended);
+#endif /* CONFIG_HTC_BATT */
 
 	rc = smb1351_masked_write(chip, CMD_INPUT_LIMIT_REG,
 				CMD_SUSPEND_MODE_BIT,
@@ -2406,6 +2411,11 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 				chip->parallel_charger_present, present);
 		return 0;
 	}
+#ifdef CONFIG_HTC_BATT
+	else
+		pr_info("set slave present = %d -> %d\n",
+			chip->parallel_charger_present, present);
+#endif /* CONFIG_HTC_BATT */
 
 	chip->parallel_charger_present = present;
 
@@ -2551,7 +2561,10 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		 *CHG EN is controlled by pin in the parallel charging.
 		 *Use suspend if disable charging by command.
 		 */
-		if (chip->parallel_charger_present) {
+#ifndef CONFIG_HTC_BATT
+		if (chip->parallel_charger_present)
+#endif /* CONFIG_HTC_BATT */
+		{
 			rc = smb1351_usb_suspend(chip, USER, !val->intval);
 			if (rc)
 				pr_err("%suspend charger failed\n",
@@ -2586,6 +2599,27 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 				chip->vfloat_mv = val->intval;
 		} else {
 			chip->vfloat_mv = val->intval;
+		}
+		break;
+	case POWER_SUPPLY_PROP_USB_OTG:
+		/*Set OTG current limit to 1A*/
+		rc = smb1351_masked_write(chip, OTG_TLIM_CTRL_REG, OTG_OC_LIMIT_MASK, OTG_OC_LIMIT_MASK);
+		if (rc)
+			pr_err("Couldn't set OTG OCP rc=%d\n", rc);
+
+		if (val->intval) {
+			rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, CMD_OTG_EN_BIT);
+			if (rc)
+				pr_err("Couldn't enable  OTG mode rc=%d\n", rc);
+
+			pr_info("SMB1351 OTG Boost is enabled\n");
+		}
+		else {
+			rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, 0);
+			if (rc)
+				pr_err("Couldn't disable OTG mode rc=%d\n", rc);
+
+			pr_info("SMB1351 OTG Boost is disabled\n");
 		}
 		break;
 	default:
@@ -3002,11 +3036,6 @@ static void smb1351_chg_remove_work(struct work_struct *work)
 	if (!(reg & IRQ_SOURCE_DET_BIT)) {
 		pr_debug("chg removed\n");
 		chip->chg_present = false;
-		/* clear parallel slave PRESENT */
-		if (parallel_psy && chip->parallel.slave_detected) {
-			pr_debug("set parallel charger un-present!\n");
-			power_supply_set_present(parallel_psy, false);
-		}
 		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy,
@@ -3015,6 +3044,11 @@ static void smb1351_chg_remove_work(struct work_struct *work)
 		power_supply_set_dp_dm(chip->usb_psy,
 				POWER_SUPPLY_DP_DM_DPR_DMR);
 		chip->apsd_rerun = false;
+		/* clear parallel slave PRESENT */
+		if (parallel_psy && chip->parallel.slave_detected) {
+			pr_debug("set parallel charger un-present!\n");
+			power_supply_set_present(parallel_psy, false);
+		}
 	} else if (!chip->chg_remove_work_scheduled) {
 		chip->chg_remove_work_scheduled = true;
 		goto reschedule;
@@ -3064,15 +3098,15 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 			}
 		} else {
 			chip->chg_present = false;
-			/* clear parallel slave PRESENT */
-			if (parallel_psy && chip->parallel.slave_detected)
-				power_supply_set_present(parallel_psy, false);
 			power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 			power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
 			pr_debug("updating usb_psy present=%d\n",
 							chip->chg_present);
+			/* clear parallel slave RESENT */
+			if (parallel_psy && chip->parallel.slave_detected)
+				power_supply_set_present(parallel_psy, false);
 		}
 		return 0;
 	}
@@ -3116,12 +3150,12 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	if (status != 0) {
 		chip->chg_present = false;
 		chip->usbin_ov = true;
-		/* clear parallel slave PRESENT */
-		if (parallel_psy && chip->parallel.slave_detected)
-			power_supply_set_present(parallel_psy, false);
 		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
+		/* clear parallel slave PRESENT */
+		if (parallel_psy && chip->parallel.slave_detected)
+			power_supply_set_present(parallel_psy, false);
 	} else {
 		chip->usbin_ov = false;
 		if (reg & IRQ_USBIN_UV_BIT)
@@ -3870,24 +3904,10 @@ static void smb1351_external_power_changed(struct power_supply *psy)
 {
 	struct smb1351_charger *chip = container_of(psy,
 				struct smb1351_charger, batt_psy);
-	struct power_supply *parallel_psy =
-				smb1351_get_parallel_slave(chip);
 	union power_supply_propval prop = {0,};
-	int rc, online = 0, slave_present = 0;
+	int rc, online = 0;
 
 	battery_soc_changed(chip);
-
-	if (parallel_psy) {
-		parallel_psy->get_property(parallel_psy,
-				POWER_SUPPLY_PROP_PRESENT, &prop);
-		slave_present = prop.intval;
-		/* Don't update main charger ICL if slave is enabled */
-		if (chip->parallel.slave_detected && slave_present
-				&& chip->parallel.slave_icl_ma != 0) {
-			pr_debug("Ignore ICL setting as parallel-slave is enabled\n");
-			return;
-		}
-	}
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &prop);
@@ -4123,6 +4143,41 @@ static void dump_regs(struct smb1351_charger *chip)
 {
 }
 #endif
+
+#ifdef CONFIG_HTC_BATT
+void smb1351_chg_dump_reg(struct power_supply *psy)
+{
+	int rc = 0;
+	u8 reg;
+	u8 addr;
+	struct smb1351_charger *chip = container_of(psy,
+				struct smb1351_charger, parallel_psy);
+
+	if (!chip) {
+		pr_err("smb1351_chg_dump_reg not ready\n");
+		return;
+	}
+
+	printk("SMB1351[00:06]=[");
+	for (addr = 0; addr <= 0x06; addr++) {
+		rc = smb1351_read_reg(chip, addr, &reg);
+		if (rc) {
+			pr_err("Couldn't read 0x%02x rc = %d\n", addr, rc);
+			return;
+		}
+		printk("%02x,", reg);
+	}
+	printk("]");
+
+	rc = smb1351_read_reg(chip, CMD_CHG_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read 0x%02x rc = %d\n", addr, rc);
+		return;
+	}
+	printk(",[32]=[%02x]\n", reg);
+}
+EXPORT_SYMBOL(smb1351_chg_dump_reg);
+#endif /* CONFIG_HTC_BATT */
 
 #define MAIN_CHG_DEFAULT_FCC_PERCENT	50
 #define MAIN_CHG_DEFAULT_ICL_PERCENT	50
@@ -4681,6 +4736,11 @@ static int smb1351_parallel_slave_probe(struct i2c_client *client,
 
 	chip->resume_completed = true;
 	create_debugfs_entries(chip);
+
+	/* Force Disable SMB1351 OTG during booting */
+	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, 0);
+	if (rc)
+		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
 
 	pr_info("smb1351 parallel successfully probed.\n");
 

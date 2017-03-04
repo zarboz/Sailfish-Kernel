@@ -191,14 +191,6 @@ snd-soc-tpa6130a2-objs := tpa6130a2.o
 snd-soc-tas2552-objs := tas2552.o
 
 #HTC_AUD_START
-snd-soc-rt5503-objs := rt5503.o rt5503-regmap.o
-obj-$(CONFIG_SND_SOC_RT5503)	+= snd-soc-rt5503.o
-ifdef CONFIG_HTC_DEBUG_DSP
-CFLAGS_wcd-mbhc-v2.o :=-DDEBUG
-endif
-#HTC_AUD_END
-
-#HTC_AUD_START
 snd-soc-tfa98xx-objs := tfa_container.o tfa_dsp.o tfa98xx.o tfa9887_init.o \
 	tfa9887B_init.o tfa9888_init.o tfa9890_init.o tfa9891_init.o tfa9897_init.o
 obj-$(CONFIG_SND_SOC_TFA98XX) += snd-soc-tfa98xx.o
@@ -389,7 +381,3 @@ obj-$(CONFIG_SND_SOC_MSM_STUB)  += snd-soc-msm-stub.o
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
-
-#HTC_AUD_START
-obj-$(CONFIG_SND_SOC_TFA98XX) += tfa/
-#HTC_AUD_END

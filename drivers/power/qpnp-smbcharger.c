@@ -9570,6 +9570,19 @@ bool is_otg_enabled(void)
 		return false;
 }
 
+
+
+bool usb_otg_pulse_skip_control(bool disable)
+{
+        if(!the_chip) {
+                pr_err("called before init\n");
+                return false;
+        }
+	smbchg_otg_pulse_skip_disable(the_chip, REASON_OTG_ENABLED, disable);
+	return true;
+}
+
+
 bool is_parallel_enabled(void)
 {
 	if(!the_chip) {

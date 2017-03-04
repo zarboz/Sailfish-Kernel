@@ -1132,16 +1132,14 @@ static void apps_ipa_tx_complete_notify(void *priv,
 	struct net_device *dev = (struct net_device *)priv;
 	struct wwan_private *wwan_ptr;
 
-	if (dev != ipa_netdevs[0]) {
-		IPAWANDBG("Received pre-SSR packet completion\n");
-		dev_kfree_skb_any(skb);
+	if (evt != IPA_WRITE_DONE) {
+		IPAWANDBG("unsupported event on Tx callback\n");
 		return;
 	}
 
-	if (evt != IPA_WRITE_DONE) {
-		IPAWANERR("unsupported evt on Tx callback, Drop the packet\n");
+	if (dev != ipa_netdevs[0]) {
+		IPAWANDBG("Received pre-SSR packet completion\n");
 		dev_kfree_skb_any(skb);
-		dev->stats.tx_dropped++;
 		return;
 	}
 
@@ -2543,7 +2541,7 @@ int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 {
 	struct ipa_get_data_stats_req_msg_v01 *req;
 	struct ipa_get_data_stats_resp_msg_v01 *resp;
-	int pipe_len, rc = -ENOMEM;
+	int pipe_len, rc;
 
 	req = kzalloc(sizeof(struct ipa_get_data_stats_req_msg_v01),
 			GFP_KERNEL);

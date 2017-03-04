@@ -25,7 +25,7 @@
 #define TASHA_SB_PGD_PORT_RX_BASE   0x40
 #define TASHA_SB_PGD_PORT_TX_BASE   0x50
 
-#define TASHA_ZDET_SUPPORTED false //HTC_AUD
+#define TASHA_ZDET_SUPPORTED true
 /* z value defined in milliohm */
 #define TASHA_ZDET_VAL_32	32000
 #define TASHA_ZDET_VAL_400	400000
@@ -162,4 +162,5 @@ extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 extern int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 extern int tasha_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
 extern enum codec_variant tasha_codec_ver(void);
+extern void tasha_mbhc_disable(struct snd_soc_codec *codec); /* HTC_AUD */
 #endif

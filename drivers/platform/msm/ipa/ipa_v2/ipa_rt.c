@@ -745,7 +745,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	if (lcl) {
 		cmd2 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
 			GFP_KERNEL);
-		if (cmd2 == NULL) {
+		if (cmd1 == NULL) {
 			IPAERR("Failed to alloc immediate command object\n");
 			rc = -ENOMEM;
 			goto fail_send_cmd1;
@@ -1029,10 +1029,6 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	return 0;
 
 ipa_insert_failed:
-	if (entry->hdr)
-		entry->hdr->ref_cnt--;
-	else if (entry->proc_ctx)
-		entry->proc_ctx->ref_cnt--;
 	list_del(&entry->link);
 	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
 error:
